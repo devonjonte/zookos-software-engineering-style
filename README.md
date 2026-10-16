@@ -16,6 +16,8 @@ who described the style and where the description comes from.
    as one collaborator adopted and amended it.
 4. [Existence versus use: mappings, page tables, and smalloc](chapters/04-existence-versus-use.md),
    a contrarian hypothesis, tested.
+5. [Build the special-purpose tool: a thread pool, from first principles](chapters/05-special-purpose-tools.md),
+   Zooko's lesson about general-purpose abstractions and multithreading, with a measured case.
 
 ## Adding a chapter
 
