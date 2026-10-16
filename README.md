@@ -18,6 +18,8 @@ who described the style and where the description comes from.
    a contrarian hypothesis, tested.
 5. [Build the special-purpose tool: a thread pool, from first principles](chapters/05-special-purpose-tools.md),
    Zooko's lesson about general-purpose abstractions and multithreading, with a measured case.
+6. [Case study: keep the memory, skip the freeing](chapters/06-case-study-keeping-memory.md),
+   Zooko's existence-versus-use hypothesis for a newcomer: the costs, the experiments, b3sum, and answers to the usual objections.
 
 ## Adding a chapter
 
