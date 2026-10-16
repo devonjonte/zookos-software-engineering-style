@@ -7,7 +7,7 @@
 A habit of this style is to doubt costs that everyone "knows", and to
 separate a thing's **existence** from its **use**. Conventional wisdom
 treats a memory mapping, and the page tables behind it, as a cost to free
-as soon as possible. The contrary hypothesis: the existence of a mapping
+as soon as possible. Zooko's contrary hypothesis: the existence of a mapping
 or a page-table entry costs nothing, or next to nothing; *touching* one
 (creating it at a page fault, tearing it down at an unmap) is what costs,
 and the two are routinely conflated. It is also the Big Idea behind
