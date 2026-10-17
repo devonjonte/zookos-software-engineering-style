@@ -20,6 +20,8 @@ who described the style and where the description comes from.
    Zooko's lesson about general-purpose abstractions and multithreading, with a measured case.
 6. [Case study: keep the memory, skip the freeing](chapters/06-case-study-keeping-memory.md),
    Zooko's existence-versus-use hypothesis for a newcomer: the costs, the experiments, b3sum, and answers to the usual objections.
+7. [Case study: the measurement rule that kept changing](chapters/07-case-study-measuring-the-measurement.md),
+   why a benchmark's comparison rule went in circles, what stopped it, and how measuring the measurement made it faster and sharper.
 
 ## Adding a chapter
 
