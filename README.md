@@ -22,6 +22,8 @@ who described the style and where the description comes from.
    Zooko's existence-versus-use hypothesis for a newcomer: the costs, the experiments, b3sum, and answers to the usual objections.
 7. [Case study: the measurement rule that kept changing](chapters/07-case-study-measuring-the-measurement.md),
    why a benchmark's comparison rule went in circles, what stopped it, and how measuring the measurement made it faster and sharper.
+8. [After-action report: a wrong hash in BLAKE3-Servil 0.9.0](chapters/08-after-action-wrong-hash-0.9.0.md),
+   for the library's users: how the defect was found, its root causes, how it passed every check of the time, and what changes.
 
 ## Adding a chapter
 
