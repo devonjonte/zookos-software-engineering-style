@@ -1,8 +1,9 @@
 # After-action report: a wrong hash in BLAKE3-Servil 0.9.0
 
-*Written by Devon Jonte on November 18, 2026, at Zooko's request, for
-users of `blake3-servil`. I made the change on November 3 that introduced
-the defect, and I found it fifteen days later while reviewing a separate
+*Written by Devon Jonte on November 18, 2026 (updated November 19 with
+post-incident refactorings), at Zooko's request, for users of
+`blake3-servil`. I made the change on November 3 that introduced the
+defect, and I found it fifteen days later while reviewing a separate
 change by John Servil. The security advisory is
 [GHSA-q4c5-2759-8c8x](https://github.com/servil-software-factory/BLAKE3/security/advisories/GHSA-q4c5-2759-8c8x).*
 
@@ -239,6 +240,91 @@ Differential runs against official `blake3` 1.8.7 on an Apple M6 across
 
 ---
 
+## Refactorings and hardening since the incident
+
+Rather than stopping at the `cut_with_prefix` patch, we used the pause
+before `0.10.0` to remove whole classes of unchecked internal handoffs,
+unverified assumptions, and platform-specific blind spots.
+
+### Removing `hazmat` and moving every threaded caller onto checked core calls
+
+`d83c3eb9` had moved `lanes.rs` and `b3sum` onto `TreeHasher`, while
+leaving the unchecked `hazmat` module and raw chaining-value paths in
+`Pipeline` and `Hasher`. In
+[BLAKE3 #455](https://github.com/servil-software-factory/BLAKE3/issues/455)
+(candidate `e3fc0282`, first reviewed as `daef4ba8`), John removed
+`hazmat` entirely and refactored `Pipeline`, `lanes.rs`,
+`Hasher::update_with`, and `update_each_with` to build every threaded hash
+through the same checked `TreeHasher`, `Cv`, and `LastCv` calls that
+external users call. Neither external callers nor the `threads` crate can
+bypass tree-shape checks. Three smaller follow-ups
+([#458](https://github.com/servil-software-factory/BLAKE3/issues/458)–[#460](https://github.com/servil-software-factory/BLAKE3/issues/460))
+track passing a checked batch view into `Pipeline` and removing the
+remaining private `BareCv` slice casts before `1.0`.
+
+### Checking shape and initialization invariants in every build
+
+Applying the updated Design By Contract rule (`00768b36`), John audited
+the core crate's internal boundaries in
+[BLAKE3 #454](https://github.com/servil-software-factory/BLAKE3/issues/454)
+(candidate `a7528862`). Cheap invariants that guard memory safety or
+correct digests now run in every build: SME2 flat-walk scratch bounds
+(`src/ffi_sme2.rs`), equal row widths before `CvStack::merge`
+(`src/hasher.rs`), plain-mode cohort checks (`src/each.rs`), and
+single-block length checks (`src/many.rs`). `CvStack::set_row` now writes
+uninitialized row slots through `MaybeUninit<Cv>` rather than casting them
+to `&mut [Cv]`.
+
+### Closing weak-memory sleep races with compiler-verified Apple ARM64 checks
+
+While gating those refactorings on Apple M6, three full timing runs hung
+in `Pipeline`. Capturing thread stacks from a stalled run exposed a real
+weak-memory lost wake-up
+([BLAKE3 #463](https://github.com/servil-software-factory/BLAKE3/issues/463)):
+`WakerSlot::register` published `REGISTERED` with `SeqCst` (`stlr`), then
+`Pipeline::reap()` re-checked completion with `Acquire`. On
+`aarch64-apple-darwin` (ARMv8.3+ `FEAT_LRCPC`), `Acquire` lowers to
+`ldapr`, which hardware may reorder ahead of `stlr`, letting the waiter
+park forever while the finisher sees `IDLE`. Shuttle's sequentially
+consistent model could not detect this class of bug.
+
+John landed
+[`f01b0d17`](https://github.com/servil-software-factory/BLAKE3/commit/f01b0d176b2a5f00d5b30ac4101d724c7a6147e7)
+and
+[`a679343c`](https://github.com/servil-software-factory/BLAKE3/commit/a679343c22e04cc5868f38bebdade90ae84245d1),
+placing `fence(Ordering::SeqCst)` (`dmb ish`) on all three sleep
+announcements (`WakerSlot::register`, `Park::park_unless`, and
+`sme2_serve`), with zero cost on the hot polling path. He also added
+`tools/check-waker-order.py` to `tools/check-builds.sh`: on every build
+check, it compiles the actual production wait paths for
+`aarch64-apple-darwin`, verifies the exact `stlr`/`ldsetal`/`stlrb` →
+`dmb ish` → `ldapr` sequence, and confirms that removing the fence in a
+negative control fails the check.
+
+### Confining Linux pools, `b3sum`, and `bench-hashes` to one memory node
+
+On Linux machines with multiple NUMA sockets, running unbound introduced
+cross-socket placement complexity and up to 30% benchmark noise. In
+[BLAKE3 #457](https://github.com/servil-software-factory/BLAKE3/issues/457)
+(candidate `12213642`) and
+[bench-hashes #242](https://github.com/servil-software-factory/bench-hashes/pull/242)
+(`100e4321`), we confined `blake3-servil`'s Linux worker pool, `b3sum`,
+and `bench-hashes` to one memory node (within the process's allowed CPUs,
+leaving library callers' own threads untouched). The code now matches the
+single-node regime we test, measure, and document (`README.md`).
+
+### Auditing earlier mutant deletions and gating `0.10.0` on a fresh two-model delta audit
+
+We re-audited every other guard or loop deletion made during the `#219`
+mutant cleanup across all allowed inputs; all were sound. Finally,
+[BLAKE3 #461](https://github.com/servil-software-factory/BLAKE3/issues/461)
+requires independent audits from at least two leading-edge AI model
+families on the exact pinned `0.10.0` delta (from `#410` through the final
+version stamp), each reporting before reading the other, before `0.10.0`
+is tagged.
+
+---
+
 ## Timeline (all dates 2026, UTC)
 
 | Date | Event |
@@ -255,3 +341,5 @@ Differential runs against official `blake3` 1.8.7 on an Apple M6 across
 | November 18, 09:39 | Private vulnerability report filed (`GHSA-q4c5-2759-8c8x`); `0.10.0` tag held on #447. |
 | November 18, 12:11 | Advisory published; all four `0.9.0` crates yanked on crates.io. |
 | November 18, 12:40 | `0.9.1` (`v0.9.1+b01b322a`) published on crates.io and GitHub; Apple M6 multi-pool differential runs pass on `0.9.1` and `0.10.0`; Design By Contract rules updated (`00768b36`). |
+| November 18, 14:00–21:30 | `hazmat` removed and threaded callers refactored onto checked `TreeHasher` calls (#455); every-build shape/init guards added (#454); Linux pool and `b3sum` confined to one memory node (#457, `bench-hashes #242`); all other `#219` deletions re-audited. |
+| November 19, 01:30–06:00 | Apple M6 `Pipeline` hangs traced to `stlr` + `ldapr` RCpc reordering (#463); `fence(SeqCst)` and Apple ARM64 assembly verifier (`tools/check-waker-order.py`) landed on `next` (`f01b0d17`, `a679343c`) and verified across full Apple M6 and AmpereOne timing runs. |
