@@ -301,18 +301,6 @@ check, it compiles the actual production wait paths for
 `dmb ish` → `ldapr` sequence, and confirms that removing the fence in a
 negative control fails the check.
 
-### Confining Linux pools, `b3sum`, and `bench-hashes` to one memory node
-
-On Linux machines with multiple NUMA sockets, running unbound introduced
-cross-socket placement complexity and up to 30% benchmark noise. In
-[BLAKE3 #457](https://github.com/servil-software-factory/BLAKE3/issues/457)
-(candidate `12213642`) and
-[bench-hashes #242](https://github.com/servil-software-factory/bench-hashes/pull/242)
-(`100e4321`), we confined `blake3-servil`'s Linux worker pool, `b3sum`,
-and `bench-hashes` to one memory node (within the process's allowed CPUs,
-leaving library callers' own threads untouched). The code now matches the
-single-node regime we test, measure, and document (`README.md`).
-
 ### Auditing earlier mutant deletions and gating `0.10.0` on a fresh two-model delta audit
 
 We re-audited every other guard or loop deletion made during the `#219`
@@ -341,5 +329,5 @@ is tagged.
 | November 18, 09:39 | Private vulnerability report filed (`GHSA-q4c5-2759-8c8x`); `0.10.0` tag held on #447. |
 | November 18, 12:11 | Advisory published; all four `0.9.0` crates yanked on crates.io. |
 | November 18, 12:40 | `0.9.1` (`v0.9.1+b01b322a`) published on crates.io and GitHub; Apple M6 multi-pool differential runs pass on `0.9.1` and `0.10.0`; Design By Contract rules updated (`00768b36`). |
-| November 18, 14:00–21:30 | `hazmat` removed and threaded callers refactored onto checked `TreeHasher` calls (#455); every-build shape/init guards added (#454); Linux pool and `b3sum` confined to one memory node (#457, `bench-hashes #242`); all other `#219` deletions re-audited. |
+| November 18, 14:00–21:30 | `hazmat` removed and threaded callers refactored onto checked `TreeHasher` calls (#455); every-build shape/init guards added (#454); all other `#219` deletions re-audited. |
 | November 19, 01:30–06:00 | Apple M6 `Pipeline` hangs traced to `stlr` + `ldapr` RCpc reordering (#463); `fence(SeqCst)` and Apple ARM64 assembly verifier (`tools/check-waker-order.py`) landed on `next` (`f01b0d17`, `a679343c`) and verified across full Apple M6 and AmpereOne timing runs. |
